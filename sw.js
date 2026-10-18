@@ -1,6 +1,6 @@
 // Low Hum service worker: saves the app on the device so it opens with no connection.
 // Change VERSION whenever the app files change, so phones pick up the new copy.
-const VERSION = 'low-hum-v1';
+const VERSION = 'low-hum-v2';
 const APP_FILES = [
   './',
   './index.html',
