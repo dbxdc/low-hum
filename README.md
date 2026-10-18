@@ -12,7 +12,7 @@ A bedside sleep-sound generator. Everything is synthesized live in the browser w
 - **Soften the roar** – cuts up to 12 dB around 220 Hz and 6 dB around 700 Hz, the band that makes noise sound like an engine.
 - **Drift** – three slow oscillators (37, 61 and 97 second periods) gently vary the tone and level so the sound never feels mechanical.
 
-Presets: Calm night (default), Hush, Deep brown, Slow tide, Soft blend, Cabin hum. The sound fades in over 30 seconds. A sleep timer (30, 60, 90 minutes or all night) fades out over the last three minutes.
+Presets: Calm night (default), Hush, Deep brown, Slow tide, Soft blend, Cabin hum, Rain barrel. The sound fades in over 30 seconds. A sleep timer (30, 60, 90 minutes or all night) fades out over the last three minutes.
 
 ## Files
 

@@ -49,6 +49,7 @@ h1{font-family:var(--display);font-weight:300;font-size:30px;letter-spacing:-.01
 .presets button{background:var(--panel);border:1px solid var(--line);color:var(--fg);border-radius:12px;
   padding:12px 12px;text-align:left;font:inherit;cursor:pointer}
 .presets button small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.presets button:last-child:nth-child(odd){grid-column:1/-1}
 .presets button[aria-pressed="true"]{border-color:var(--ember);background:#251c22}
 .presets button:focus-visible,.seg button:focus-visible{outline:2px solid var(--ember);outline-offset:2px}
 
@@ -140,6 +141,7 @@ body.dim .hide-when-dim{opacity:.08;transition:opacity 1.2s}
     {id:'tide',  name:'Slow tide',   sub:'Brown with a soft swell', s:{brown:70,rumble:20,pink:5, warmth:75,swell:35,roar:50,drift:30}},
     {id:'blend', name:'Soft blend',  sub:'Masks voices and traffic',s:{brown:65,rumble:15,pink:35,warmth:45,swell:0, roar:50,drift:30}},
     {id:'cabin', name:'Cabin hum',   sub:'Low rumble, like a ship', s:{brown:55,rumble:60,pink:0, warmth:85,swell:0, roar:20,drift:15}},
+    {id:'barrel',name:'Rain barrel', sub:'Deep sub, slow swell, darkest',s:{brown:60,rumble:100,pink:0,warmth:100,swell:65,roar:40,drift:30}},
   ];
   const TIMERS = [[0,'All night'],[30,'30 min'],[60,'1 hr'],[90,'90 min']];
   const FADE_SEC = 180;
