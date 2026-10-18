@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Low Hum</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,500&family=Figtree:wght@400;500;600&display=swap">
+<style>
+/* Layout: one quiet column — glowing ember button on top, spectrum, then mixer and timer. Deliberately dark-only for bedside use. */
+:root{
+  --bg:#141019; --panel:#1c1724; --line:#2c2536; --fg:#e9e1d6; --muted:#9a8fa6;
+  --ember:#e0a35e; --ember-deep:#a8582f; --glow:rgba(224,163,94,.22);
+  --display:"Bricolage Grotesque", ui-rounded, system-ui, sans-serif;
+  --body:"Figtree", system-ui, -apple-system, sans-serif;
+  color-scheme:dark;
+}
+html,body{background:var(--bg);color:var(--fg)}
+body{font-family:var(--body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:440px;margin:0 auto;padding-block:28px 48px;display:flex;flex-direction:column;gap:26px}
+header{display:flex;justify-content:space-between;align-items:baseline}
+h1{font-family:var(--display);font-weight:300;font-size:30px;letter-spacing:-.01em;margin:0}
+.clock{font-variant-numeric:tabular-nums;color:var(--muted);font-size:13px;letter-spacing:.06em}
+
+.stage{display:grid;place-items:center;padding-block:10px}
+#play{position:relative;width:200px;height:200px;border-radius:50%;border:0;cursor:pointer;
+  background:radial-gradient(circle at 50% 45%, var(--ember) 0%, var(--ember-deep) 55%, #3a2230 100%);
+  box-shadow:0 0 0 1px var(--line), 0 0 60px var(--glow);color:#1a1016;
+  font-family:var(--display);font-size:20px;font-weight:500;transition:transform .6s ease, filter .6s ease;
+  filter:saturate(.55) brightness(.7)}
+#play.on{filter:none}
+#play:focus-visible{outline:2px solid var(--ember);outline-offset:6px}
+#play span{display:block;font-family:var(--body);font-size:12px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;opacity:.75;margin-top:2px}
+.status{margin-top:16px;color:var(--muted);font-size:13px;text-align:center;min-height:20px;font-variant-numeric:tabular-nums}
+
+.label{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.presets{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.presets button{background:var(--panel);border:1px solid var(--line);color:var(--fg);border-radius:12px;
+  padding:12px 12px;text-align:left;font:inherit;cursor:pointer}
+.presets button small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.presets button[aria-pressed="true"]{border-color:var(--ember);background:#251c22}
+.presets button:focus-visible,.seg button:focus-visible{outline:2px solid var(--ember);outline-offset:2px}
+
+.spectrum{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 12px 8px}
+canvas{display:block;width:100%;height:120px}
+.spec-note{display:flex;justify-content:space-between;color:var(--muted);font-size:11px;margin-top:4px;font-variant-numeric:tabular-nums}
+
+.mixer{display:flex;flex-direction:column;gap:16px}
+.row{display:grid;grid-template-columns:1fr auto;gap:2px 12px;align-items:baseline}
+.row label{font-weight:500}
+.row output{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.row p{grid-column:1/-1;margin:0;color:var(--muted);font-size:12.5px}
+input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--ember);height:28px;margin:2px 0 0}
+
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{flex:1 1 auto;background:var(--panel);border:1px solid var(--line);color:var(--fg);
+  border-radius:999px;padding:8px 12px;font:inherit;font-size:14px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ember);color:#1a1016;border-color:var(--ember)}
+
+.tips{color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:18px;display:flex;flex-direction:column;gap:8px}
+.tips p{margin:0}
+.tips strong{color:var(--fg);font-weight:600}
+
+body.dim .hide-when-dim{opacity:.08;transition:opacity 1.2s}
+@media (prefers-reduced-motion:reduce){#play{transition:none}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>Low Hum</h1>
+    <div class="clock" id="clock">--:--</div>
+  </header>
+
+  <div class="stage">
+    <button id="play" aria-label="Start sound">Begin<span>tap to play</span></button>
+    <div class="status" id="status">Generated live on your phone. Nothing is downloaded.</div>
+  </div>
+
+  <section class="hide-when-dim" aria-labelledby="pl">
+    <div class="label" id="pl" style="margin-bottom:10px">Starting points</div>
+    <div class="presets" id="presets"></div>
+  </section>
+
+  <section class="spectrum hide-when-dim" aria-label="Shape of the sound">
+    <canvas id="spec" width="840" height="240"></canvas>
+    <div class="spec-note"><span>20 Hz</span><span>Where the energy sits</span><span>8 kHz</span></div>
+  </section>
+
+  <section class="mixer hide-when-dim" aria-labelledby="ml">
+    <div class="label" id="ml">Mix</div>
+    <div class="row"><label for="brown">Brown noise</label><output id="brownO"></output>
+      <input type="range" id="brown" min="0" max="100"><p>The deep, even roar. Falls off 6 dB per octave.</p></div>
+    <div class="row"><label for="rumble">Sub rumble</label><output id="rumbleO"></output>
+      <input type="range" id="rumble" min="0" max="100"><p>Energy below 80 Hz. The felt-more-than-heard layer.</p></div>
+    <div class="row"><label for="pink">Pink noise</label><output id="pinkO"></output>
+      <input type="range" id="pink" min="0" max="100"><p>Adds a little air to mask voices and traffic.</p></div>
+    <div class="row"><label for="warmth">Warmth</label><output id="warmthO"></output>
+      <input type="range" id="warmth" min="0" max="100"><p>Cuts the top end. Further right is darker and softer.</p></div>
+    <div class="row"><label for="swell">Slow swell</label><output id="swellO"></output>
+      <input type="range" id="swell" min="0" max="100"><p>A gentle rise and fall at six breaths a minute. Off at zero.</p></div>
+    <div class="row"><label for="vol">Volume</label><output id="volO"></output>
+      <input type="range" id="vol" min="0" max="100"></div>
+  </section>
+
+  <section class="hide-when-dim" aria-labelledby="tl">
+    <div class="label" id="tl" style="margin-bottom:10px">Fade out after</div>
+    <div class="seg" id="timer"></div>
+  </section>
+
+  <section class="tips hide-when-dim">
+    <p><strong>Keep it quiet.</strong> Set it just loud enough to cover background noise, roughly the level of a soft shower in the next room.</p>
+    <p><strong>On iPhone:</strong> flip the ring/silent switch off if you hear nothing, and leave this page open. The screen will dim to a faint glow while it plays.</p>
+    <p><strong>Small speakers can't reproduce the lowest rumble.</strong> Headphones, AirPods or a bedside Bluetooth speaker bring it out.</p>
+  </section>
+</div>
+
+<script>
+(() => {
+  const PRESETS = [
+    {id:'deep',  name:'Deep brown',  sub:'Steady, dark, classic',   s:{brown:80,rumble:30,pink:0, warmth:70,swell:0}},
+    {id:'cabin', name:'Cabin hum',   sub:'Low rumble, like a ship', s:{brown:55,rumble:85,pink:0, warmth:85,swell:0}},
+    {id:'tide',  name:'Slow tide',   sub:'Brown with a soft swell', s:{brown:75,rumble:40,pink:5, warmth:75,swell:45}},
+    {id:'blend', name:'Soft blend',  sub:'Masks voices and traffic',s:{brown:65,rumble:20,pink:35,warmth:45,swell:0}},
+  ];
+  const TIMERS = [[0,'All night'],[30,'30 min'],[60,'1 hr'],[90,'90 min']];
+  const FADE_SEC = 180;
+
+  let state = {...PRESETS[0].s, vol:55, preset:'deep', timer:60};
+  try { const s = JSON.parse(localStorage.getItem('lowhum')||'null'); if (s) state = {...state, ...s}; } catch(e){}
+  const save = () => { try { localStorage.setItem('lowhum', JSON.stringify(state)); } catch(e){} };
+
+  const $ = id => document.getElementById(id);
+  const sliders = ['brown','rumble','pink','warmth','swell','vol'];
+
+  // ---------- UI build ----------
+  const pWrap = $('presets');
+  PRESETS.forEach(p => {
+    const b = document.createElement('button');
+    b.id = 'preset-'+p.id; b.dataset.id = p.id;
+    b.innerHTML = `${p.name}<small>${p.sub}</small>`;
+    b.onclick = () => { Object.assign(state, p.s, {preset:p.id}); syncUI(); apply(); save(); };
+    pWrap.appendChild(b);
+  });
+  const tWrap = $('timer');
+  TIMERS.forEach(([m,l]) => {
+    const b = document.createElement('button');
+    b.id = 'timer-'+m; b.dataset.m = m; b.textContent = l;
+    b.onclick = () => { state.timer = m; syncUI(); save(); if (playing) armTimer(); };
+    tWrap.appendChild(b);
+  });
+  sliders.forEach(k => $(k).addEventListener('input', e => {
+    state[k] = +e.target.value; if (k !== 'vol') state.preset = null;
+    syncUI(); apply(); save();
+  }));
+
+  const warmthHz = w => Math.round(4500 * Math.pow(250/4500, w/100)); // 4.5 kHz → 250 Hz
+  function syncUI(){
+    sliders.forEach(k => $(k).value = state[k]);
+    ['brown','rumble','pink','vol'].forEach(k => $(k+'O').textContent = state[k] + '%');
+    $('warmthO').textContent = 'cut at ' + (warmthHz(state.warmth) >= 1000 ? (warmthHz(state.warmth)/1000).toFixed(1)+' kHz' : warmthHz(state.warmth)+' Hz');
+    $('swellO').textContent = state.swell ? state.swell + '%' : 'off';
+    PRESETS.forEach(p => $('preset-'+p.id).setAttribute('aria-pressed', state.preset === p.id));
+    TIMERS.forEach(([m]) => $('timer-'+m).setAttribute('aria-pressed', state.timer === m));
+    drawSpectrum();
+  }
+
+  // ---------- Spectrum (theoretical response of the current mix) ----------
+  function drawSpectrum(){
+    const c = $('spec'), g = c.getContext('2d'), W = c.width, H = c.height;
+    g.clearRect(0,0,W,H);
+    const fMin = 20, fMax = 8000, N = 140, fc = warmthHz(state.warmth);
+    const pts = [];
+    for (let i=0;i<=N;i++){
+      const f = fMin * Math.pow(fMax/fMin, i/N);
+      const lpW = 1/(1+Math.pow(f/fc,4));            // 2nd-order low-pass (power)
+      const lpR = 1/(1+Math.pow(f/80,8));             // rumble 4th-order (power)
+      const b = (state.brown/100)**2 * (40/f)**2;
+      const r = (state.rumble/100*2.2)**2 * (40/f)**2 * lpR;
+      const p = (state.pink/100*0.55)**2 * (40/f);
+      pts.push(10*Math.log10((b+r+p)*lpW + 1e-9));
+    }
+    const top = 6, bot = -54;
+    const y = d => H - 12 - (Math.max(bot,Math.min(top,d)) - bot)/(top-bot) * (H-24);
+    const cs = getComputedStyle(document.documentElement);
+    // grid at 100 Hz and 1 kHz
+    g.strokeStyle = cs.getPropertyValue('--line'); g.lineWidth = 2;
+    [100,1000].forEach(f => { const x = W*Math.log(f/fMin)/Math.log(fMax/fMin); g.beginPath(); g.moveTo(x,8); g.lineTo(x,H-8); g.stroke(); });
+    g.fillStyle = cs.getPropertyValue('--muted'); g.font = '20px Figtree, sans-serif';
+    g.fillText('100 Hz', W*Math.log(100/fMin)/Math.log(fMax/fMin)+6, 28);
+    g.fillText('1 kHz',  W*Math.log(1000/fMin)/Math.log(fMax/fMin)+6, 28);
+    // area
+    const grad = g.createLinearGradient(0,0,0,H);
+    grad.addColorStop(0, 'rgba(224,163,94,.55)'); grad.addColorStop(1, 'rgba(168,88,47,.03)');
+    g.beginPath(); g.moveTo(0,H);
+    pts.forEach((d,i)=> g.lineTo(W*i/N, y(d)));
+    g.lineTo(W,H); g.closePath(); g.fillStyle = grad; g.fill();
+    g.beginPath(); pts.forEach((d,i)=> i ? g.lineTo(W*i/N,y(d)) : g.moveTo(0,y(d)));
+    g.strokeStyle = cs.getPropertyValue('--ember'); g.lineWidth = 3; g.stroke();
+  }
+
+  // ---------- Audio ----------
+  let ctx, nodes, playing = false, timerEnd = 0, fadeT, stopT, wakeLock;
+
+  // Seamless looping noise: render extra tail, crossfade it into the head.
+  function makeBuffer(kind, sec=24){
+    const sr = ctx.sampleRate, L = sr*sec, X = sr*2, raw = new Float32Array(L+X);
+    if (kind === 'brown'){
+      let last = 0;
+      for (let i=0;i<raw.length;i++){ last = (last + 0.02*(Math.random()*2-1)) / 1.02; raw[i] = last; }
+    } else {
+      let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+      for (let i=0;i<raw.length;i++){
+        const w = Math.random()*2-1;
+        b0=.99886*b0+w*.0555179; b1=.99332*b1+w*.0750759; b2=.96900*b2+w*.1538520;
+        b3=.86650*b3+w*.3104856; b4=.55000*b4+w*.5329522; b5=-.7616*b5-w*.0168980;
+        raw[i]=b0+b1+b2+b3+b4+b5+b6+w*.5362; b6=w*.115926;
+      }
+    }
+    // Mono loop: crossfade the extra tail into the head (equal power) so the wrap is click-free
+    const mono = raw.subarray(0, L).slice();
+    for (let i=0;i<X;i++){ const t = i/X; mono[i] = raw[i]*Math.sin(t*Math.PI/2) + raw[L+i]*Math.cos(t*Math.PI/2); }
+    let mean = 0; for (let i=0;i<L;i++) mean += mono[i]; mean /= L;
+    let peak = 0; for (let i=0;i<L;i++){ mono[i] -= mean; peak = Math.max(peak, Math.abs(mono[i])); }
+    for (let i=0;i<L;i++) mono[i] /= peak;
+    // Right channel is the same loop half a cycle later, for a wide, uncorrelated stereo field
+    const buf = ctx.createBuffer(2, L, sr), lch = buf.getChannelData(0), rch = buf.getChannelData(1), off = Math.floor(L/2);
+    lch.set(mono);
+    for (let i=0;i<L;i++) rch[i] = mono[(i+off)%L];
+    return buf;
+  }
+
+  function build(){
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch(e){}
+    const brownBuf = makeBuffer('brown'), pinkBuf = makeBuffer('pink');
+    const src = b => { const s = ctx.createBufferSource(); s.buffer = b; s.loop = true; return s; };
+    const n = {};
+    n.brownSrc = src(brownBuf); n.rumbleSrc = src(brownBuf); n.pinkSrc = src(pinkBuf);
+    n.brown = ctx.createGain(); n.rumble = ctx.createGain(); n.pink = ctx.createGain();
+    n.rLP1 = ctx.createBiquadFilter(); n.rLP1.type='lowpass'; n.rLP1.frequency.value=80; n.rLP1.Q.value=.6;
+    n.rLP2 = ctx.createBiquadFilter(); n.rLP2.type='lowpass'; n.rLP2.frequency.value=80; n.rLP2.Q.value=.6;
+    n.warm = ctx.createBiquadFilter(); n.warm.type='lowpass'; n.warm.Q.value=.5;
+    n.hp   = ctx.createBiquadFilter(); n.hp.type='highpass'; n.hp.frequency.value=24; n.hp.Q.value=.5;
+    n.swell = ctx.createGain(); n.lfo = ctx.createOscillator(); n.lfo.frequency.value = 0.1; n.lfoDepth = ctx.createGain();
+    n.fade = ctx.createGain(); n.master = ctx.createGain(); n.comp = ctx.createDynamicsCompressor();
+    n.comp.threshold.value = -6; n.comp.ratio.value = 4;
+
+    n.brownSrc.connect(n.brown).connect(n.warm);
+    n.rumbleSrc.playbackRate.value = .97; // different position, avoids phase lock with brown layer
+    n.rumbleSrc.connect(n.rLP1).connect(n.rLP2).connect(n.rumble).connect(n.warm);
+    n.pinkSrc.connect(n.pink).connect(n.warm);
+    n.warm.connect(n.hp).connect(n.swell).connect(n.fade).connect(n.master).connect(n.comp).connect(ctx.destination);
+    n.lfo.connect(n.lfoDepth).connect(n.swell.gain);
+    const t = ctx.currentTime;
+    n.brownSrc.start(t); n.rumbleSrc.start(t, 9); n.pinkSrc.start(t); n.lfo.start(t);
+    n.fade.gain.value = 0;
+    nodes = n;
+  }
+
+  function apply(){
+    if (!nodes) return;
+    const t = ctx.currentTime, r = .4;
+    nodes.brown.gain.setTargetAtTime(state.brown/100*0.9, t, r);
+    nodes.rumble.gain.setTargetAtTime(state.rumble/100*2.4, t, r);
+    nodes.pink.gain.setTargetAtTime(state.pink/100*0.35, t, r);
+    nodes.warm.frequency.setTargetAtTime(warmthHz(state.warmth), t, r);
+    const d = state.swell/100*0.35;
+    nodes.swell.gain.setTargetAtTime(1 - d, t, r);
+    nodes.lfoDepth.gain.setTargetAtTime(d, t, r);
+    const v = state.vol/100; nodes.master.gain.setTargetAtTime(v*v*0.9, t, r);
+  }
+
+  async function start(){
+    if (!ctx) build();
+    if (ctx.state !== 'running') await ctx.resume();
+    apply();
+    const t = ctx.currentTime;
+    nodes.fade.gain.cancelScheduledValues(t);
+    nodes.fade.gain.setValueAtTime(nodes.fade.gain.value, t);
+    nodes.fade.gain.linearRampToValueAtTime(1, t + 6); // 6 s fade in
+    playing = true; $('play').classList.add('on');
+    $('play').innerHTML = 'Playing<span>tap to stop</span>'; $('play').setAttribute('aria-label','Stop sound');
+    armTimer(); lockScreen(); scheduleDim();
+  }
+  function stop(fadeSec = 2){
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    nodes.fade.gain.cancelScheduledValues(t);
+    nodes.fade.gain.setValueAtTime(nodes.fade.gain.value, t);
+    nodes.fade.gain.linearRampToValueAtTime(0, t + fadeSec);
+    playing = false; clearTimeout(fadeT); clearTimeout(stopT); timerEnd = 0;
+    setTimeout(() => { if (!playing) ctx.suspend(); }, fadeSec*1000 + 200);
+    $('play').classList.remove('on');
+    $('play').innerHTML = 'Begin<span>tap to play</span>'; $('play').setAttribute('aria-label','Start sound');
+    try { wakeLock && wakeLock.release(); } catch(e){} wakeLock = null;
+    document.body.classList.remove('dim');
+  }
+  function armTimer(){
+    clearTimeout(fadeT); clearTimeout(stopT);
+    if (!state.timer){ timerEnd = 0; return; }
+    const ms = state.timer*60000; timerEnd = Date.now() + ms;
+    fadeT = setTimeout(() => {
+      const t = ctx.currentTime; nodes.fade.gain.cancelScheduledValues(t);
+      nodes.fade.gain.setValueAtTime(nodes.fade.gain.value, t);
+      nodes.fade.gain.linearRampToValueAtTime(0, t + FADE_SEC);
+    }, ms - FADE_SEC*1000);
+    stopT = setTimeout(() => stop(0.1), ms + 500);
+  }
+  async function lockScreen(){
+    try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch(e){ wakeLock = null; }
+  }
+  document.addEventListener('visibilitychange', () => { if (playing && document.visibilityState === 'visible') lockScreen(); });
+
+  // Dim the page to a faint glow after 20 s of no touches while playing
+  let dimT;
+  function scheduleDim(){ clearTimeout(dimT); document.body.classList.remove('dim'); if (playing) dimT = setTimeout(()=>document.body.classList.add('dim'), 20000); }
+  ['pointerdown','keydown','scroll'].forEach(ev => addEventListener(ev, scheduleDim, {passive:true}));
+
+  $('play').onclick = () => playing ? stop() : start();
+
+  // Status line + clock
+  setInterval(() => {
+    const now = new Date();
+    $('clock').textContent = now.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
+    if (!playing) return;
+    if (timerEnd){
+      const left = Math.max(0, timerEnd - Date.now()), m = Math.floor(left/60000), s = Math.floor(left%60000/1000);
+      $('status').textContent = (left <= FADE_SEC*1000 ? 'Fading out · ' : 'Fades out in ') + m + ':' + String(s).padStart(2,'0');
+    } else $('status').textContent = 'Playing all night';
+  }, 1000);
+
+  syncUI();
+  $('clock').textContent = new Date().toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
+})();
+</script>
+</body>
+</html>
