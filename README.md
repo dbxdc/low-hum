@@ -15,6 +15,13 @@ Presets: Deep brown, Cabin hum, Slow tide, Soft blend. A sleep timer (30, 60, 90
 ## Files
 
 - `index.html` – the whole app: markup, styles and script in one file.
+- `sw.js` – service worker that saves the app on the device so it opens offline. Bump `VERSION` whenever the app files change.
+- `manifest.webmanifest` – name, colors and icons for "Add to Home Screen."
+- `icons/` – Home Screen icons.
+
+## Offline use
+
+The site is published with GitHub Pages at https://dbxdc.github.io/low-hum/. Open it once in Safari while online, tap Share → Add to Home Screen, then launch it from the icon. After that first visit it works in airplane mode.
 
 ## Using it on an iPhone
 
