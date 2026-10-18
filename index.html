@@ -104,13 +104,17 @@ body.dim .hide-when-dim{opacity:.08;transition:opacity 1.2s}
     <div class="row"><label for="brown">Brown noise</label><output id="brownO"></output>
       <input type="range" id="brown" min="0" max="100"><p>The deep, even roar. Falls off 6 dB per octave.</p></div>
     <div class="row"><label for="rumble">Sub rumble</label><output id="rumbleO"></output>
-      <input type="range" id="rumble" min="0" max="100"><p>Energy below 80 Hz. The felt-more-than-heard layer.</p></div>
+      <input type="range" id="rumble" min="0" max="100"><p>Energy below 80 Hz. Kept moderate so it never thumps in your chest.</p></div>
     <div class="row"><label for="pink">Pink noise</label><output id="pinkO"></output>
       <input type="range" id="pink" min="0" max="100"><p>Adds a little air to mask voices and traffic.</p></div>
     <div class="row"><label for="warmth">Warmth</label><output id="warmthO"></output>
       <input type="range" id="warmth" min="0" max="100"><p>Cuts the top end. Further right is darker and softer.</p></div>
     <div class="row"><label for="swell">Slow swell</label><output id="swellO"></output>
       <input type="range" id="swell" min="0" max="100"><p>A gentle rise and fall at six breaths a minute. Off at zero.</p></div>
+    <div class="row"><label for="roar">Soften the roar</label><output id="roarO"></output>
+      <input type="range" id="roar" min="0" max="100"><p>Scoops out the low-middle band that makes noise sound like an engine.</p></div>
+    <div class="row"><label for="drift">Drift</label><output id="driftO"></output>
+      <input type="range" id="drift" min="0" max="100"><p>Very slow, uneven changes in tone and level over minutes, so the sound feels less mechanical.</p></div>
     <div class="row"><label for="vol">Volume</label><output id="volO"></output>
       <input type="range" id="vol" min="0" max="100"></div>
   </section>
@@ -130,20 +134,22 @@ body.dim .hide-when-dim{opacity:.08;transition:opacity 1.2s}
 <script>
 (() => {
   const PRESETS = [
-    {id:'deep',  name:'Deep brown',  sub:'Steady, dark, classic',   s:{brown:80,rumble:30,pink:0, warmth:70,swell:0}},
-    {id:'cabin', name:'Cabin hum',   sub:'Low rumble, like a ship', s:{brown:55,rumble:85,pink:0, warmth:85,swell:0}},
-    {id:'tide',  name:'Slow tide',   sub:'Brown with a soft swell', s:{brown:75,rumble:40,pink:5, warmth:75,swell:45}},
-    {id:'blend', name:'Soft blend',  sub:'Masks voices and traffic',s:{brown:65,rumble:20,pink:35,warmth:45,swell:0}},
+    {id:'calm',  name:'Calm night',  sub:'Soft, unhurried, easy',   s:{brown:60,rumble:10,pink:15,warmth:65,swell:0, roar:70,drift:50}},
+    {id:'hush',  name:'Hush',        sub:'Quiet and very dark',     s:{brown:55,rumble:5, pink:5, warmth:85,swell:0, roar:80,drift:35}},
+    {id:'deep',  name:'Deep brown',  sub:'Steady, dark, classic',   s:{brown:80,rumble:25,pink:0, warmth:70,swell:0, roar:30,drift:20}},
+    {id:'tide',  name:'Slow tide',   sub:'Brown with a soft swell', s:{brown:70,rumble:20,pink:5, warmth:75,swell:35,roar:50,drift:30}},
+    {id:'blend', name:'Soft blend',  sub:'Masks voices and traffic',s:{brown:65,rumble:15,pink:35,warmth:45,swell:0, roar:50,drift:30}},
+    {id:'cabin', name:'Cabin hum',   sub:'Low rumble, like a ship', s:{brown:55,rumble:60,pink:0, warmth:85,swell:0, roar:20,drift:15}},
   ];
   const TIMERS = [[0,'All night'],[30,'30 min'],[60,'1 hr'],[90,'90 min']];
   const FADE_SEC = 180;
 
-  let state = {...PRESETS[0].s, vol:55, preset:'deep', timer:60};
+  let state = {...PRESETS[0].s, vol:40, preset:'calm', timer:60};
   try { const s = JSON.parse(localStorage.getItem('lowhum')||'null'); if (s) state = {...state, ...s}; } catch(e){}
   const save = () => { try { localStorage.setItem('lowhum', JSON.stringify(state)); } catch(e){} };
 
   const $ = id => document.getElementById(id);
-  const sliders = ['brown','rumble','pink','warmth','swell','vol'];
+  const sliders = ['brown','rumble','pink','warmth','swell','roar','drift','vol'];
 
   // ---------- UI build ----------
   const pWrap = $('presets');
@@ -172,6 +178,8 @@ body.dim .hide-when-dim{opacity:.08;transition:opacity 1.2s}
     ['brown','rumble','pink','vol'].forEach(k => $(k+'O').textContent = state[k] + '%');
     $('warmthO').textContent = 'cut at ' + (warmthHz(state.warmth) >= 1000 ? (warmthHz(state.warmth)/1000).toFixed(1)+' kHz' : warmthHz(state.warmth)+' Hz');
     $('swellO').textContent = state.swell ? state.swell + '%' : 'off';
+    $('roarO').textContent = state.roar ? '−' + (state.roar*0.12).toFixed(1) + ' dB' : 'off';
+    $('driftO').textContent = state.drift ? state.drift + '%' : 'off';
     PRESETS.forEach(p => $('preset-'+p.id).setAttribute('aria-pressed', state.preset === p.id));
     TIMERS.forEach(([m]) => $('timer-'+m).setAttribute('aria-pressed', state.timer === m));
     drawSpectrum();
@@ -188,9 +196,11 @@ body.dim .hide-when-dim{opacity:.08;transition:opacity 1.2s}
       const lpW = 1/(1+Math.pow(f/fc,4));            // 2nd-order low-pass (power)
       const lpR = 1/(1+Math.pow(f/80,8));             // rumble 4th-order (power)
       const b = (state.brown/100)**2 * (40/f)**2;
-      const r = (state.rumble/100*2.2)**2 * (40/f)**2 * lpR;
+      const r = (state.rumble/100*1.4)**2 * (40/f)**2 * lpR;
       const p = (state.pink/100*0.55)**2 * (40/f);
-      pts.push(10*Math.log10((b+r+p)*lpW + 1e-9));
+      const oct = (fc0,w) => Math.exp(-Math.pow(Math.log2(f/fc0),2)/(2*w*w));
+      const roarDb = -state.roar/100*(12*oct(220,.9) + 6*oct(700,.9));
+      pts.push(10*Math.log10((b+r+p)*lpW + 1e-9) + roarDb);
     }
     const top = 6, bot = -54;
     const y = d => H - 12 - (Math.max(bot,Math.min(top,d)) - bot)/(top-bot) * (H-24);
@@ -254,6 +264,15 @@ body.dim .hide-when-dim{opacity:.08;transition:opacity 1.2s}
     n.rLP1 = ctx.createBiquadFilter(); n.rLP1.type='lowpass'; n.rLP1.frequency.value=80; n.rLP1.Q.value=.6;
     n.rLP2 = ctx.createBiquadFilter(); n.rLP2.type='lowpass'; n.rLP2.frequency.value=80; n.rLP2.Q.value=.6;
     n.warm = ctx.createBiquadFilter(); n.warm.type='lowpass'; n.warm.Q.value=.5;
+    n.roar1 = ctx.createBiquadFilter(); n.roar1.type='peaking'; n.roar1.frequency.value=220; n.roar1.Q.value=.7;
+    n.roar2 = ctx.createBiquadFilter(); n.roar2.type='peaking'; n.roar2.frequency.value=700; n.roar2.Q.value=.7;
+    // Drift: three slow oscillators with unrelated periods (37, 61, 97 s) nudge tone and level
+    n.drift = ctx.createGain(); n.driftLevel = ctx.createGain(); n.driftTone = ctx.createGain();
+    n.driftSum = ctx.createGain();
+    n.driftOscs = [37, 61, 97].map((sec, i) => { const o = ctx.createOscillator(); o.frequency.value = 1/sec;
+      const g = ctx.createGain(); g.gain.value = [1, .7, .5][i]; o.connect(g).connect(n.driftSum); return o; });
+    n.driftSum.connect(n.driftLevel).connect(n.drift.gain);
+    n.driftSum.connect(n.driftTone).connect(n.warm.detune);
     n.hp   = ctx.createBiquadFilter(); n.hp.type='highpass'; n.hp.frequency.value=24; n.hp.Q.value=.5;
     n.swell = ctx.createGain(); n.lfo = ctx.createOscillator(); n.lfo.frequency.value = 0.1; n.lfoDepth = ctx.createGain();
     n.fade = ctx.createGain(); n.master = ctx.createGain(); n.comp = ctx.createDynamicsCompressor();
@@ -263,10 +282,10 @@ body.dim .hide-when-dim{opacity:.08;transition:opacity 1.2s}
     n.rumbleSrc.playbackRate.value = .97; // different position, avoids phase lock with brown layer
     n.rumbleSrc.connect(n.rLP1).connect(n.rLP2).connect(n.rumble).connect(n.warm);
     n.pinkSrc.connect(n.pink).connect(n.warm);
-    n.warm.connect(n.hp).connect(n.swell).connect(n.fade).connect(n.master).connect(n.comp).connect(ctx.destination);
+    n.warm.connect(n.roar1).connect(n.roar2).connect(n.hp).connect(n.drift).connect(n.swell).connect(n.fade).connect(n.master).connect(n.comp).connect(ctx.destination);
     n.lfo.connect(n.lfoDepth).connect(n.swell.gain);
     const t = ctx.currentTime;
-    n.brownSrc.start(t); n.rumbleSrc.start(t, 9); n.pinkSrc.start(t); n.lfo.start(t);
+    n.brownSrc.start(t); n.rumbleSrc.start(t, 9); n.pinkSrc.start(t); n.lfo.start(t); n.driftOscs.forEach((o,i) => o.start(t, 0));
     n.fade.gain.value = 0;
     nodes = n;
   }
@@ -275,9 +294,15 @@ body.dim .hide-when-dim{opacity:.08;transition:opacity 1.2s}
     if (!nodes) return;
     const t = ctx.currentTime, r = .4;
     nodes.brown.gain.setTargetAtTime(state.brown/100*0.9, t, r);
-    nodes.rumble.gain.setTargetAtTime(state.rumble/100*2.4, t, r);
+    nodes.rumble.gain.setTargetAtTime(state.rumble/100*1.5, t, r);
     nodes.pink.gain.setTargetAtTime(state.pink/100*0.35, t, r);
     nodes.warm.frequency.setTargetAtTime(warmthHz(state.warmth), t, r);
+    nodes.roar1.gain.setTargetAtTime(-12*state.roar/100, t, r);
+    nodes.roar2.gain.setTargetAtTime(-6*state.roar/100, t, r);
+    const dr = state.drift/100;                       // summed oscillators peak near ±2.2
+    nodes.drift.gain.setTargetAtTime(1 - dr*0.12, t, r);
+    nodes.driftLevel.gain.setTargetAtTime(dr*0.05, t, r);   // up to about ±1 dB of level
+    nodes.driftTone.gain.setTargetAtTime(dr*220, t, r);     // up to about ±5 semitones of tone
     const d = state.swell/100*0.35;
     nodes.swell.gain.setTargetAtTime(1 - d, t, r);
     nodes.lfoDepth.gain.setTargetAtTime(d, t, r);
@@ -315,7 +340,7 @@ body.dim .hide-when-dim{opacity:.08;transition:opacity 1.2s}
     const t = ctx.currentTime;
     nodes.fade.gain.cancelScheduledValues(t);
     nodes.fade.gain.setValueAtTime(nodes.fade.gain.value, t);
-    nodes.fade.gain.linearRampToValueAtTime(1, t + 6); // 6 s fade in
+    nodes.fade.gain.linearRampToValueAtTime(1, t + 30); // 30 s fade in
     playing = true; $('play').classList.add('on');
     $('play').innerHTML = 'Playing<span>tap to stop</span>'; $('play').setAttribute('aria-label','Stop sound');
     armTimer(); lockScreen(); scheduleDim();

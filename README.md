@@ -9,8 +9,10 @@ A bedside sleep-sound generator. Everything is synthesized live in the browser w
 - **Pink noise** – a brighter layer for masking voices and traffic.
 - **Warmth** – a low-pass filter that sweeps from 4.5 kHz down to 250 Hz.
 - **Slow swell** – an optional rise and fall at 0.1 Hz (six cycles a minute).
+- **Soften the roar** – cuts up to 12 dB around 220 Hz and 6 dB around 700 Hz, the band that makes noise sound like an engine.
+- **Drift** – three slow oscillators (37, 61 and 97 second periods) gently vary the tone and level so the sound never feels mechanical.
 
-Presets: Deep brown, Cabin hum, Slow tide, Soft blend. A sleep timer (30, 60, 90 minutes or all night) fades out over the last three minutes.
+Presets: Calm night (default), Hush, Deep brown, Slow tide, Soft blend, Cabin hum. The sound fades in over 30 seconds. A sleep timer (30, 60, 90 minutes or all night) fades out over the last three minutes.
 
 ## Files
 
